@@ -16,10 +16,10 @@ public class SampleCarouselViewActivity extends Activity {
     String admob_banner = "ca-app-pub-3940256099942544/6300978111";
     String adbmob_interstitial = "ca-app-pub-3940256099942544/1033173712";
 
-    String fan_banner = "1366788343427705_1370735309699675";
-    String fan_interstitial = "1366788343427705_1367668590006347";
-    String fan_banner_native = "1366788343427705_1464880376951834";
-    String fan_big_custom_native = "1366788343427705_1371136552992884";
+    String fan_banner = "test";
+    String fan_interstitial = "test";
+    String fan_banner_native = "test";
+    String fan_big_custom_native = "test";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
