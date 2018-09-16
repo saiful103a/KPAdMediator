@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+    <bool name="test_bool">true</bool>
+    <color name="test_color">#FFFFFFFF</color>
+    <integer name="test_integer">0</integer>
+    <dimen name="test_dimen">3dp</dimen>
+</resources>
