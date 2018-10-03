@@ -3,20 +3,25 @@ package com.kplibwork.libcommon;
 import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
-
-/**
+import java.util.Timer;
+import java.util.TimerTask;
+/*
  * Created by saiful on 9/15/18.
  */
 
-public class KPInterstitialController {
-    private static final String TAG = KPInterstitialController.class.getName();
 
-    public interface AdFailedToShowListener{
+public class KPInterstitialController
+{
+    private static final String TAG = KPInterstitialController.class.getName();
+    private Timer timer;
+
+    public interface AdFailedToShowListener
+    {
         void onFailedToLoadAd();
     }
 
-    public static class Builder {
-
+    public static class Builder
+    {
         private Context mCurrentContext; //This is important, so we'll pass it to the constructor.
 
         private String admob_interstitial_id;
@@ -35,18 +40,22 @@ public class KPInterstitialController {
         private boolean mAdmobOnly = false;
         private boolean mFanOnly = false;
 
-        public Builder setAdFailedToShowListener(AdFailedToShowListener mAdFailedToShowListener) {
+        public Builder setAdFailedToShowListener(AdFailedToShowListener mAdFailedToShowListener)
+        {
             this.mAdFailedToShowListener = mAdFailedToShowListener;
             return this;
         }
 
-        public Builder(Context mCurrentContext) {
+        public Builder(Context mCurrentContext)
+        {
             this.mCurrentContext = mCurrentContext;
         }
 
-        public Builder setAdmobInterstitialId(String admob_interstitial_id){
+        public Builder setAdmobInterstitialId(String admob_interstitial_id)
+        {
             this.mAdmobOnly = true;
-            if(null!=fan_interstitial_id && fan_interstitial_id.length()>0){
+            if(null!=fan_interstitial_id && fan_interstitial_id.length()>0)
+            {
                 this.mBothAd = true;
                 this.mAdmobOnly = false;
                 this.mFanOnly = false;
@@ -136,7 +145,6 @@ public class KPInterstitialController {
             bannerController2.EventCount = this.EventCount;
 
             bannerController2.setInstance(bannerController2);
-
             return bannerController2;
         }
     }
@@ -187,6 +195,7 @@ public class KPInterstitialController {
             @Override
             public void onAdClosed() {
                 Log.d("Interstitial Ad Info ", "The interstitial is Closed");
+                reScheduleAdvertiseTime(mActivity); /*This method call should be removed if Advertise with Time Interval is not required*/
                 onRequestToLoadAdmobInterstitialAd(mActivity);
             }
         });
@@ -203,6 +212,7 @@ public class KPInterstitialController {
 
             @Override
             public void onInterstitialDismissed(com.facebook.ads.Ad ad) {
+                reScheduleAdvertiseTime(mActivity); /*This method call should be removed if Advertise with Time Interval is not required*/
                 onRequestToLoadFBInterstitialAd(mActivity);
             }
 
@@ -242,10 +252,11 @@ public class KPInterstitialController {
         }
     }
 
-    private void onShowInterstitialAd(final Context mActivity){
+    public void onShowInterstitialAd(final Context mActivity){
         Boolean adshown = false;
         boolean admobloaded = false;
         boolean fanloaded = false;
+
         if(null != mAdmobInterstitialAd && mAdmobInterstitialAd.isLoaded()){
             admobloaded = true;
         }
@@ -254,8 +265,13 @@ public class KPInterstitialController {
             fanloaded = true;
         }
 
-        if((mAdmobOnly || (mBothAd && ad_priority_policy==KPConstants.AD_PRIORITY_POLICY_ADMOB_FIRST))){
-            if(admobloaded){
+        if(KPConstants.appMinimized)
+            return;
+
+        if((mAdmobOnly || (mBothAd && ad_priority_policy==KPConstants.AD_PRIORITY_POLICY_ADMOB_FIRST)))
+        {
+            if(admobloaded)
+            {
                 mAdmobInterstitialAd.show();
                 adshown = true;
             }else if(fanloaded){
@@ -273,6 +289,9 @@ public class KPInterstitialController {
         }else{
             Log.d(TAG,"No Ad");
         }
+
+        if(adshown && timer != null)
+            timer.cancel();
 
         if (!adshown) {
             onRequestToLoadFBInterstitialAd(mActivity);
@@ -338,6 +357,50 @@ public class KPInterstitialController {
         try {
         } catch (Exception e) {
             // TODO: handle exception
+        }
+    }
+
+    public void reScheduleAdvertiseTime(final Context context)
+    {
+        /*
+            Purpose of this method: To show Advertise with a Time Interval.
+         */
+
+        int oneMin = KPConstants.ONE_MIN;
+        long randomNum = KPUtils.getRandomNumber(oneMin*3, oneMin*5);
+        Log.d("Timer", "Time = " + randomNum);
+        timer = new Timer("fullScreenAdTimer", true);
+
+        TimerTask timerTask = new MyTimerTask(new Runnable() {
+            public void run() {
+                doCallInterstitialController(context);
+                KPConstants.timePassed = true;
+            }
+        });
+        timer.schedule(timerTask, randomNum, randomNum);
+        KPConstants.timePassed = false;
+    }
+
+    public class MyTimerTask extends TimerTask {
+        Runnable runnable;
+        MyTimerTask(Runnable runnable){
+            this.runnable = runnable;
+        }
+        @Override
+        public void run() {
+            if(runnable != null){
+                ((Activity) mCurrentContext).runOnUiThread(runnable);
+            }
+        }
+    }
+
+    public void doCallInterstitialController(Context context)
+    {
+        try {
+            //mKPInterstitialController.onRequestToShowInterstitialAd(SampleCarouselViewActivity.this);
+            KPInterstitialController.getInstance().onRequestToShowInterstitialAd(context);
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
 }
