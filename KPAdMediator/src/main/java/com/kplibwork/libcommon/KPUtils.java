@@ -10,6 +10,7 @@ import android.util.Log;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
+import java.util.Random;
 
 public final class KPUtils{
 
@@ -44,6 +45,44 @@ public final class KPUtils{
         } catch (Exception e) {
             // TODO: handle exception
         }
+    }
+
+    public static boolean isNetworkPresent(Context context) {
+        boolean isNetworkAvailable = false;
+
+        try {
+            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm != null)
+            {
+                NetworkInfo netInfo = cm.getActiveNetworkInfo();
+                if (netInfo != null) {
+                    isNetworkAvailable = netInfo.isConnectedOrConnecting();
+                }
+            }
+
+            // check for wifi also
+            if (!isNetworkAvailable) {
+                WifiManager connec = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                NetworkInfo.State wifi = cm.getNetworkInfo(1).getState();
+                if (connec.isWifiEnabled() && wifi.toString().equalsIgnoreCase("CONNECTED")) {
+                    isNetworkAvailable = true;
+                } else {
+
+                    isNetworkAvailable = false;
+                }
+            }
+        } catch (Exception ex) {
+            Log.e("Network Avail Error", ex.getMessage());
+        }
+
+        return isNetworkAvailable;
+    }
+
+    public static int getRandomNumber(int minTime, int maxTime)
+    {
+        Random random = new Random();
+        int randomNum = random.nextInt(maxTime - minTime + 1) + minTime;
+        return randomNum;
     }
 
 
@@ -124,40 +163,6 @@ public final class KPUtils{
 //    }
 
 
-    public static boolean isNetworkPresent(Context context) {
-        boolean isNetworkAvailable = false;
-
-        try {
-            ConnectivityManager cm = (ConnectivityManager) context
-                    .getSystemService(Context.CONNECTIVITY_SERVICE);
-            if (cm != null) {
-                NetworkInfo netInfo = cm.getActiveNetworkInfo();
-                if (netInfo != null) {
-                    isNetworkAvailable = netInfo.isConnectedOrConnecting();
-                }
-            }
-
-            // check for wifi also
-            if (!isNetworkAvailable) {
-                WifiManager connec = (WifiManager) context.getApplicationContext()
-                        .getSystemService(Context.WIFI_SERVICE);
-                NetworkInfo.State wifi = cm.getNetworkInfo(1).getState();
-                if (connec.isWifiEnabled()
-                        && wifi.toString().equalsIgnoreCase("CONNECTED")) {
-                    isNetworkAvailable = true;
-                } else {
-
-                    isNetworkAvailable = false;
-                }
-
-            }
-
-        } catch (Exception ex) {
-            Log.e("Network Avail Error", ex.getMessage());
-        }
-
-        return isNetworkAvailable;
-    }
 //    private static String TAG = KPUtils.class.getSimpleName();
 //
 //    private static KPBannerController.AdNetworkShowListener mAdNetworkShowListener;

@@ -11,7 +11,8 @@ import android.widget.LinearLayout;
  * Created by saiful on 9/15/18.
  */
 
-public class KPBannerController {
+public class KPBannerController
+{
     private static final String TAG = KPBannerController.class.getName();
 
     public interface AdFailedToShowListener{
@@ -69,6 +70,8 @@ public class KPBannerController {
                 this.mFanOnly = false;
             }
             this.admob_banner_id = admob_banner_id;
+            Log.d("Advertise", "setAdmobBanner " + admob_banner_id);
+            Log.d("Advertise", "setAdmobBannerThis " + this.admob_banner_id);
             return this;
         }
 
@@ -297,7 +300,7 @@ public class KPBannerController {
     private void loadFanBannerAds(final View view, final com.facebook.ads.AdSize mFanAdSize){
         try {
             LinearLayout adHolder = (LinearLayout)view;
-            adHolder.setGravity(Gravity.CENTER);
+            adHolder.setGravity(Gravity.BOTTOM);
             try {
                 if(fanAdView!=null) {
                     fanAdView.setAdListener(null);
@@ -330,7 +333,7 @@ public class KPBannerController {
                                 KPBannerController.this.loadAdmobBannerAds(view);
                             }
                         }else if(null!=mAdFailedToShowListener) {
-                                mAdFailedToShowListener.onFailedToLoadAd();
+                            mAdFailedToShowListener.onFailedToLoadAd();
                         }
                     }
 
@@ -348,7 +351,7 @@ public class KPBannerController {
 
                     }
                 });
-                adHolder.setGravity(Gravity.CENTER);
+                adHolder.setGravity(Gravity.BOTTOM);
                 adHolder.addView(fanAdView);
 
                 fanAdView.loadAd();
@@ -361,7 +364,7 @@ public class KPBannerController {
     private void loadAdmobBannerAds(final View view,com.google.android.gms.ads.AdSize mAdmobAdsize){
         try {
             final LinearLayout adholder = (LinearLayout)view;
-            adholder.setGravity(Gravity.CENTER);
+            adholder.setGravity(Gravity.BOTTOM);
 
             try {
                 if(admobAdView!=null) {
@@ -431,7 +434,7 @@ public class KPBannerController {
                 String admb = admob_banner_id;
                 // Start loading the ad in the background.
                 admobAdView.setAdUnitId(admb);
-                adholder.setGravity(Gravity.CENTER);
+                adholder.setGravity(Gravity.BOTTOM);
                 adholder.addView(admobAdView);
 
                 com.google.android.gms.ads.AdRequest adRequest = null;
@@ -490,6 +493,7 @@ public class KPBannerController {
     }
 
     private void loadBannerAds() throws Exception{
+
         try {
             com.google.android.gms.ads.MobileAds.initialize(mCurrentContext, admob_app_id);
         }catch (Exception e){
@@ -506,4 +510,5 @@ public class KPBannerController {
     public void requestBannerAds() throws Exception{
         loadBannerAds();
     }
+
 }
