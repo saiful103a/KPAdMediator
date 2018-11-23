@@ -3,8 +3,15 @@ package com.kplibwork.libcommon;
 import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
+
+import com.facebook.ads.AdError;
+
 import java.util.Timer;
 import java.util.TimerTask;
+
+import static com.google.android.gms.ads.AdRequest.ERROR_CODE_INTERNAL_ERROR;
+import static com.google.android.gms.ads.AdRequest.ERROR_CODE_NETWORK_ERROR;
+import static com.google.android.gms.ads.AdRequest.ERROR_CODE_NO_FILL;
 /*
  * Created by saiful on 9/15/18.
  */
@@ -13,7 +20,7 @@ import java.util.TimerTask;
 public class KPInterstitialController
 {
     private static final String TAG = KPInterstitialController.class.getName();
-    private Timer timer;
+    private Timer timer, retryTimer;
 
     public interface AdFailedToShowListener
     {
@@ -189,14 +196,24 @@ public class KPInterstitialController
         mAdmobInterstitialAd.setAdListener(new com.google.android.gms.ads.AdListener() {
             @Override
             public void onAdLoaded() {
-                Log.d("Interstitial Ad Info ", "The interstitial is loaded");
+                //Log.d("Interstitial Ad Info ", "The interstitial is loaded");
             }
 
             @Override
             public void onAdClosed() {
-                Log.d("Interstitial Ad Info ", "The interstitial is Closed");
-                reScheduleAdvertiseTime(mActivity); /*This method call should be removed if Advertise with Time Interval is not required*/
+                //Log.d("Interstitial Ad Info ", "The interstitial is Closed");
+                //reScheduleAdvertiseTime(mActivity); /*This method call should be removed if Advertise with Time Interval is not required*/
                 onRequestToLoadAdmobInterstitialAd(mActivity);
+            }
+
+            @Override
+            public void onAdFailedToLoad(int i) {
+                super.onAdFailedToLoad(i);
+                if(i == ERROR_CODE_NO_FILL
+                        || i == ERROR_CODE_NETWORK_ERROR
+                        || i == ERROR_CODE_INTERNAL_ERROR){
+                    retryAfterGivenTime(mActivity, true, KPConstants.THIRTY_SECONDS);
+                }
             }
         });
     }
@@ -212,18 +229,24 @@ public class KPInterstitialController
 
             @Override
             public void onInterstitialDismissed(com.facebook.ads.Ad ad) {
-                reScheduleAdvertiseTime(mActivity); /*This method call should be removed if Advertise with Time Interval is not required*/
+                //reScheduleAdvertiseTime(mActivity); /*This method call should be removed if Advertise with Time Interval is not required*/
                 onRequestToLoadFBInterstitialAd(mActivity);
             }
 
             @Override
             public void onError(com.facebook.ads.Ad ad, com.facebook.ads.AdError adError) {
-
+                if(adError.getErrorCode() == AdError.NO_FILL_ERROR_CODE
+                        || adError.getErrorCode() == AdError.SERVER_ERROR_CODE
+                        || adError.getErrorCode() == AdError.INTERNAL_ERROR_CODE
+                        || adError.getErrorCode() == AdError.NETWORK_ERROR_CODE){
+                    retryAfterGivenTime(mActivity, false, KPConstants.THIRTY_SECONDS);
+                }else if(adError.getErrorCode() == AdError.LOAD_TOO_FREQUENTLY_ERROR_CODE){
+                    retryAfterGivenTime(mActivity, false, KPConstants.THIRTY_MINUTE);
+                }
             }
 
             @Override
             public void onAdLoaded(com.facebook.ads.Ad ad) {
-
             }
 
             @Override
@@ -287,7 +310,7 @@ public class KPInterstitialController
                 adshown = true;
             }
         }else{
-            Log.d(TAG,"No Ad");
+            //Log.d(TAG,"No Ad");
         }
 
         if(adshown && timer != null)
@@ -368,7 +391,7 @@ public class KPInterstitialController
 
         int oneMin = KPConstants.ONE_MIN;
         long randomNum = KPUtils.getRandomNumber(oneMin*3, oneMin*5);
-        Log.d("Timer", "Time = " + randomNum);
+        //Log.d("Timer", "Time = " + randomNum);
         timer = new Timer("fullScreenAdTimer", true);
 
         TimerTask timerTask = new MyTimerTask(new Runnable() {
@@ -402,5 +425,42 @@ public class KPInterstitialController
         }catch (Exception e){
             e.printStackTrace();
         }
+    }
+
+    public void showAdmobInterstitialAd(Context context) {
+        if (mAdmobInterstitialAd == null) {
+            onRequestToLoadAdmobInterstitialAd(context);
+        }
+        if (null != mAdmobInterstitialAd && mAdmobInterstitialAd.isLoaded()) {
+            mAdmobInterstitialAd.show();
+        }
+    }
+
+    private void retryAfterGivenTime(final Context context, final boolean isGoogleAd, int givenTime){
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    if(isGoogleAd){
+                        onRequestToLoadAdmobInterstitialAd(context);
+                    }else{
+                        onRequestToLoadFBInterstitialAd(context);
+                    }
+                }catch(Exception e){}
+            }
+        };
+
+        startTimer(runnable, givenTime);
+    }
+
+    private void startTimer(Runnable runnable, int time){
+        try{
+            if(retryTimer == null){
+                retryTimer = new Timer("retryTimer", true);
+            }
+
+            TimerTask timerTask = new MyTimerTask(runnable);
+            retryTimer.schedule(timerTask, time);
+        }catch (Exception e){}
     }
 }

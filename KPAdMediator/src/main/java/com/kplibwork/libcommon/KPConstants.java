@@ -21,6 +21,10 @@ public class KPConstants {
     public static boolean timePassed = false;
 
     public static final int ONE_MIN = 1*60*1000;
+    public static final int THIRTY_SECONDS = 30 * 1000;
+    public static final int THIRTY_MINUTE = 30 * ONE_MIN;
+
+    public static boolean SHOWING_FAN_LOAD_TOO_FREQUENTLY_ERROR = false;
 
     public static long getRandomNumber(int minTime, int maxTime)
     {

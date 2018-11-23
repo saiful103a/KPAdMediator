@@ -1,11 +1,21 @@
 package com.kplibwork.libcommon;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.Handler;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+
+import com.facebook.ads.AdError;
+
+import java.util.Timer;
+import java.util.TimerTask;
+
+import static com.google.android.gms.ads.AdRequest.ERROR_CODE_INTERNAL_ERROR;
+import static com.google.android.gms.ads.AdRequest.ERROR_CODE_NETWORK_ERROR;
+import static com.google.android.gms.ads.AdRequest.ERROR_CODE_NO_FILL;
 
 /**
  * Created by saiful on 9/15/18.
@@ -14,6 +24,7 @@ import android.widget.LinearLayout;
 public class KPBannerController
 {
     private static final String TAG = KPBannerController.class.getName();
+    private Timer retryTimer;
 
     public interface AdFailedToShowListener{
         void onFailedToLoadAd();
@@ -70,8 +81,8 @@ public class KPBannerController
                 this.mFanOnly = false;
             }
             this.admob_banner_id = admob_banner_id;
-            Log.d("Advertise", "setAdmobBanner " + admob_banner_id);
-            Log.d("Advertise", "setAdmobBannerThis " + this.admob_banner_id);
+            //Log.d("Advertise", "setAdmobBanner " + admob_banner_id);
+            //Log.d("Advertise", "setAdmobBannerThis " + this.admob_banner_id);
             return this;
         }
 
@@ -326,10 +337,21 @@ public class KPBannerController
                 fanAdView.setAdListener(new com.facebook.ads.AbstractAdListener() {
                     @Override
                     public void onError(com.facebook.ads.Ad ad, com.facebook.ads.AdError adError) {
+                        fanAdView.destroy();
+                        //Log.d("AD_TEST", "fan ad loading error: " + adError.getErrorMessage());
                         if(mBothAd && ad_rotation_policy == KPConstants.AD_ROTATION_POLICY_ON_FAIL) {
-                            mFanRetryCount--;
-                            if (mFanRetryCount <= 0) {
-                                mFanRetryCount = DEFAULT_BANNER_RETRY_COUNT;
+                            if(ad_priority_policy == KPConstants.AD_PRIORITY_POLICY_ADMOB_FIRST){
+                                if(adError.getErrorCode() == AdError.NO_FILL_ERROR_CODE
+                                        || adError.getErrorCode() == AdError.SERVER_ERROR_CODE
+                                        || adError.getErrorCode() == AdError.INTERNAL_ERROR_CODE
+                                        || adError.getErrorCode() == AdError.NETWORK_ERROR_CODE){
+                                    retryAfterGivenTime(view, true, KPConstants.THIRTY_SECONDS);
+                                }else if(adError.getErrorCode() == AdError.LOAD_TOO_FREQUENTLY_ERROR_CODE){
+                                    KPConstants.SHOWING_FAN_LOAD_TOO_FREQUENTLY_ERROR = true;
+                                    retryAfterGivenTime(view, true, KPConstants.THIRTY_SECONDS);
+                                    retryAfterGivenTime(view, false, KPConstants.THIRTY_MINUTE);
+                                }
+                            }else{
                                 KPBannerController.this.loadAdmobBannerAds(view);
                             }
                         }else if(null!=mAdFailedToShowListener) {
@@ -339,6 +361,8 @@ public class KPBannerController
 
                     @Override
                     public void onAdLoaded(com.facebook.ads.Ad ad) {
+                        //Log.d("AD_TEST", "fan ad loaded");
+                        KPConstants.SHOWING_FAN_LOAD_TOO_FREQUENTLY_ERROR = false;
                         loadRunnables();
                         if(null!=handler && null!=mAdRunnable && ad_rotation_policy == KPConstants.AD_ROTATION_POLICY_TIME_INTERVAL) {
                             handler.removeCallbacks(mAdRunnable);
@@ -398,11 +422,23 @@ public class KPBannerController
 
                     @Override
                     public void onAdFailedToLoad(int errorCode) {
+                        //Log.d("AD_TEST", "google ad error: "+errorCode);
+                        admobAdView.destroy();
                         if(mBothAd && ad_rotation_policy == KPConstants.AD_ROTATION_POLICY_ON_FAIL) {
-                            mAdmobRetryCounter--;
-                            if (mAdmobRetryCounter <= 0) {
-                                mAdmobRetryCounter = mAdmobRetryCount;
-                                KPBannerController.this.loadFanBannerAds(view);
+                            if(ad_priority_policy == KPConstants.AD_PRIORITY_POLICY_FAN_FIRST){
+                                if((errorCode == ERROR_CODE_NO_FILL
+                                        || errorCode == ERROR_CODE_NETWORK_ERROR
+                                        || errorCode == ERROR_CODE_INTERNAL_ERROR) && !KPConstants.SHOWING_FAN_LOAD_TOO_FREQUENTLY_ERROR){
+                                    retryAfterGivenTime(view, false, KPConstants.THIRTY_SECONDS);
+                                }else{
+                                    retryAfterGivenTime(view, true, KPConstants.THIRTY_SECONDS);
+                                }
+                            }else{
+                                if(!KPConstants.SHOWING_FAN_LOAD_TOO_FREQUENTLY_ERROR){
+                                    KPBannerController.this.loadFanBannerAds(view);
+                                }else{
+                                    retryAfterGivenTime(view, true, KPConstants.THIRTY_SECONDS);
+                                }
                             }
                         }else if(null!=mAdFailedToShowListener) {
                             mAdFailedToShowListener.onFailedToLoadAd();
@@ -418,6 +454,7 @@ public class KPBannerController
 
                     @Override
                     public void onAdLoaded() {
+                        //Log.d("AD_TEST", "google ad loaded");
                         loadRunnables();
                         if(null!=handler && null!=mAdRunnable && ad_rotation_policy == KPConstants.AD_ROTATION_POLICY_TIME_INTERVAL) {
                             handler.removeCallbacks(mAdRunnable);
@@ -487,7 +524,7 @@ public class KPBannerController
         }else if(mFanOnly || (mBothAd && ad_priority_policy==KPConstants.AD_PRIORITY_POLICY_FAN_FIRST)){
             KPBannerController.this.loadFanBannerAds(bannerHolder);
         }else{
-            Log.d(TAG,"No Ad");
+            //Log.d(TAG,"No Ad");
         }
 
     }
@@ -511,4 +548,47 @@ public class KPBannerController
         loadBannerAds();
     }
 
+    public class MyTimerTask extends TimerTask {
+        Runnable runnable;
+        MyTimerTask(Runnable runnable){
+            this.runnable = runnable;
+        }
+        @Override
+        public void run() {
+            if(runnable != null){
+                ((Activity) mCurrentContext).runOnUiThread(runnable);
+            }
+        }
+    }
+
+    private void retryAfterGivenTime(final View view, final boolean isGoogleAd, final int givenTime) {
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (isGoogleAd) {
+                        //Log.d("AD_TEST", "requesting admob banner ad");
+                        KPBannerController.this.loadAdmobBannerAds(view);
+                    } else {
+                        //Log.d("AD_TEST", "requesting fan banner ad");
+                        KPBannerController.this.loadFanBannerAds(view);
+                        if(givenTime == KPConstants.THIRTY_MINUTE) KPConstants.SHOWING_FAN_LOAD_TOO_FREQUENTLY_ERROR = false;
+                    }
+                } catch (Exception e) {}
+            }
+        };
+
+        startTimer(runnable, givenTime);
+    }
+
+    private void startTimer(Runnable runnable, int time){
+        try{
+            if(retryTimer == null){
+                retryTimer = new Timer("retryTimer", true);
+            }
+
+            TimerTask timerTask = new MyTimerTask(runnable);
+            retryTimer.schedule(timerTask, time);
+        }catch (Exception e){}
+    }
 }
